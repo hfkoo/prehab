@@ -970,22 +970,42 @@ if prehab_sheets_filtered and nonprehab_sheets_filtered:
                 })
 
         else:  # categorical (Clavien-Dindo)
-            ct              = pd.crosstab(pre_clean, columns="Prehab").join(
-                                pd.crosstab(non_clean, columns="Non-Prehab"), how="outer"
-                            ).fillna(0)
+            # --- use *exactly* the same cleaning as the plotting code ---
+            valid_grades = ["0", "1", "2", "3a", "3b", "4a", "4b", "5"]
+
+            pre_clean = (
+                pre_df[col]
+                .astype(str).str.strip().str.lower()
+                .loc[lambda s: s.isin(valid_grades)]
+                .astype(pd.CategoricalDtype(categories=valid_grades, ordered=True))
+            )
+            non_clean = (
+                non_df[col]
+                .astype(str).str.strip().str.lower()
+                .loc[lambda s: s.isin(valid_grades)]
+                .astype(pd.CategoricalDtype(categories=valid_grades, ordered=True))
+            )
+
+            # contingency table – rows = grades, cols = groups
+            ct = (
+                pd.crosstab(pre_clean,  columns="Prehab")
+                .join(pd.crosstab(non_clean, columns="Non-Prehab"), how="outer")
+                .fillna(0)
+            )
+
             chi2, p_val, *_ = chi2_contingency(ct.values)
 
             summary_rows.append({
                 "Outcome":  name,
                 "Group":    "Prehab",
                 "n":        len(pre_clean),
-                "p-value":  format_p_value(p_val)
+                "p-value":  format_p_value(p_val),
             })
             summary_rows.append({
                 "Outcome":  name,
                 "Group":    "Non-Prehab",
                 "n":        len(non_clean),
-                "p-value":  format_p_value(p_val)
+                "p-value":  format_p_value(p_val),
             })
 
     summary_df = pd.DataFrame(summary_rows)
